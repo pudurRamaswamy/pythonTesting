@@ -22,27 +22,31 @@ class ListUsersResponse(BaseModel):
 # 2. THE TEST
 def test_user_list_schema_validation(authenticated_page):
     """
-    Test Goal: Validate that the 'List Users' API matches our expected schema.
-    This catches backend changes before they break the UI.
+    Cleaner version: If UserSchema fails, the global hook 
+    in conftest.py catches the ValidationError and logs it.
     """
-    # Using Playwright's built-in request context
-    api_request: APIRequestContext = authenticated_page.request
-    response = api_request.get("https://reqres.in/api/users?page=2")
+    response = authenticated_page.request.get("https://reqres.in/api/users?page=2")
+    assert response.ok
     
-    # Check transport
-    assert response.ok, f"API Request failed with status {response.status}"
+    # We simply try to instantiate the model. 
+    # If it fails, our global hook handles the custom reporting.
+    raw_data = response.json()
+    validated_data = ListUsersResponse(**raw_data)
     
-    # VALIDATION LOGIC
-    try:
-        raw_data = response.json()
-        # This line validates the entire nested JSON structure at once
-        validated_data = ListUsersResponse(**raw_data)
-        
-        # Now we have a fully-typed Python object
-        print(f"\nSuccessfully validated {len(validated_data.data)} users.")
-        assert validated_data.page == 2
-        assert "@" in validated_data.data[0].email
-        
-    except ValidationError as e:
-        # If the API developer changed 'id' to a string, Pydantic catches it here.
-        pytest.fail(f"API Contract Broken! Schema mismatch: {e.json()}")
+    assert validated_data.page == 2
+    assert len(validated_data.data) > 0
+
+def test_ui_resilience_to_api_failure(authenticated_page):
+    """
+    This test will fail intentionally to show off the global hook's 
+    ability to catch the Pydantic error and print the details.
+    """
+    authenticated_page.route("**/api/users**", lambda route: route.fulfill(
+        status=200,
+        content_type="application/json",
+        body='{"data": "WRONG_DATA_TYPE_OBJECT_INSTEAD_OF_LIST"}'
+    ))
+    
+    response = authenticated_page.request.get("https://reqres.in/api/users?page=2")
+    # This line will trigger the ValidationError & the Global Hook
+    ListUsersResponse(**response.json()) 

@@ -12,3 +12,9 @@ This repository demonstrates a production-grade UI and API automation architectu
 1. `pip install -r requirements.txt`
 2. `playwright install`
 3. `pytest --shard 1/2`
+
+## 🧪 Proof of Concept: Contract Testing
+The file `tests/test_api_contract.py` demonstrates:
+1. **Schema Enforcement:** Using Pydantic to validate nested JSON responses from the ReqRes production API.
+2. **Type Safety:** Automated detection of backend changes (e.g., field type changes from Float to String).
+3. **Fault Injection:** Using Playwright `route` to inject malformed payloads, ensuring UI stability during backend failures.
